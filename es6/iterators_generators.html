@@ -1,0 +1,405 @@
+<html> iterators & generators </html>
+<script>
+/*（迭代器）【Iterators】are objects with a specific interface designed
+    for iteration. The【next()】method of iterators return an object: { 
+        value: 遍历值
+        done: 是否结束
+}*/
+
+/*（生成器）【Generators】can be:
+    1) function declarations
+    2) function expressions
+    3) object methods (ES5 object literal; ES6 method shorthand)
+*/
+function *generator1() {}
+const generator2 = function *() {}
+const obj = {
+    generator3: function *() {},
+    *generator4() {}
+}
+
+/*（可迭代目标）【Iterables】are objects with a【Symbol.iterator】property, which
+    specifies a function that returns an【iterator】for the given object,
+    and are designed to be used with the【for-of】loop.
+        1) in ES6, all collection objects（arrays/sets/maps）and strings 
+            are【iterables】, and they have a default【iterator】specified
+        2) all【iterators】created by【generators】are also【iterables】, 
+            and【generators】assign the【Symbol.iterator】property by default.
+*/
+const iterator1 = generator1();
+const iterator2 = generator2();
+const iterator3 = obj.generator3();
+const iterator4 = obj.generator4();
+console.log(
+    "---iterables---\n",
+    iterator1[Symbol.iterator], iterator1.next(), " (1)\n",
+    iterator2[Symbol.iterator], iterator2.next(), " (2)\n",
+    iterator3[Symbol.iterator], iterator3.next(), " (3)\n",
+    iterator4[Symbol.iterator], iterator4.next(), " (4)\n",
+    [][Symbol.iterator], [1,2,3].values().next(),                               " (5)\n",
+    new Set()[Symbol.iterator], new Set([1,2,3]).values().next(),               " (6)\n",
+    new Map()[Symbol.iterator], new Map([['A', 1], ['B', 2]]).entries().next(), " (7)\n",
+    ''[Symbol.iterator], 'ABC'[Symbol.iterator]().next(),                       " (8)\n",
+)
+/* ------ for(let num of arr) {} ------
+    We use【for-of】loops on【iterables】,
+    which has a【Symbol.iterator】property,
+    which when called by the JS engine, returns an【iterator】,
+    of which the【next()】method is called, and returns a【result object】
+    whose【value】is read into【num】when【done == false】
+    and the loop exits when【done == true】, and【num】is never
+        assigned the value of【undefined】
+*/
+
+/*
+    The for-of statement will throw an error when you use it on 
+        a non-iterable object, null, or undefined.
+    Developer-defined objects are not【iterable】by default, 
+        but you can make them iterable by creating a【Symbol.iterator】
+        property containing a【generator】.
+*/
+const iterate_obj = {
+    items: [
+        { key: 'a', value: 1 },
+        { key: 'b', value: 2 },
+        { key: 'c', value: 3 }
+    ],
+    *[Symbol.iterator](){
+        for(let item of this.items) {
+            yield item;
+        }
+    }
+};
+for(let { key, value } of iterate_obj) {
+    console.log("{key}, {value}: ", key, value);
+}
+/*
+    Because【Symbol.iterator】specifies the default【iterator】, we can use it
+      to detect whether an object is【iterable】.
+    The【for-of】loop does a similar check before executing.
+*/
+function isIterable(object) {
+    return typeof object[Symbol.iterator] === 'function';
+}
+console.log(`is Iterable or Not: \n
+    array: ${isIterable([1,2,3])} \n
+    string: ${isIterable("123")} \n
+    map: ${isIterable(new Map())} \n
+    set: ${isIterable(new Set())} \n
+    weakMap: ${isIterable(new WeakMap())} \n
+    weakSet: ${isIterable(new WeakSet())} \n
+`);
+
+/*
+    Collection Iterators（for arrays、maps、sets）:
+        entries()   <=>   [key, value]
+        values()
+        keys()
+    For【arrays】, the 1st item is the numeric index;
+    For【sets】, the 1st item is also the value (it doubles as a key);
+    For【maps】, the 1st item is the key.
+        arr::: [0, 'black']
+        arr::: [1, 'white']
+        set::: ['black', 'black']
+        set::: ['white', 'white']
+        map::: ['black', '#000']
+        map::: ['white', '#fff']
+*/
+const color_arr = ['black', 'white'];   color_arr.ABCDEF='FEDCBA';
+const color_set = new Set(color_arr);
+const color_map = new Map();
+color_map.set('black', '#000');
+color_map.set('white', '#fff');
+for(let item of color_arr.entries()) { console.log("arr:::", item) }
+for(let item of color_arr.keys()) { console.log("arr-KEY:::", item) }
+for(let item of color_arr.values()) { console.log("arr-VAL:::", item) }
+
+for(let item of color_set.entries()) { console.log("set:::", item) }
+for(let item of color_set.keys()) { console.log("set-KEY:::", item) }
+for(let item of color_set.values()) { console.log("set-VAL:::", item) }
+
+for(let item of color_map.entries()) { console.log("map:::", item) }
+for(let item of color_map.keys()) { console.log("map-KEY:::", item) }
+for(let item of color_map.values()) { console.log("map-VAL:::", item) }
+/*
+    Each collection type also has a default iterator that is used by【for-of】
+    whenever an iterator isn’t explicitly specified. 
+        For【arrays】and【sets】：values() is the default iterator
+        For【maps】：entries() is the default iterator
+            （which return the same array format that 
+                can be passed into the Map constructor,
+                    a format easy for destructuring in【for-of】as below）
+*/
+for(let item of color_arr) { console.log(":::ARR:::", item) }
+for(let item of color_set) { console.log(":::SET:::", item) }
+for(let [key, value] of color_map) { console.log(":::MAP:::", key, value) }
+/*
+    【for-of】loop iterates over only numeric indexes;
+    【for-in】loop iterates over【properties】rather than just the numeric indexes.
+*/
+for(let item in color_arr) { console.log("for-in:::ARR:::", item) } // 多了FEDCBA的打印
+/*
+    ES5 formalized bracket notation str[0] for accessing characters in string,
+    but it works on【code units】rather than【characters】, so it can NOT be used
+    to access【multiple-byte】characters correctly.
+
+    But the default【iterator】for strings works on【characters】rather than【code units】，
+        which is more in line with what you'd expect.
+
+    ⚠ JavaScript只支持UTF-16编码（单个字符的code unit长度为: 2 或 4 字节）
+    ⚠ 中文字符的编码：
+        UTF-8： 【 1 character 】【 3 code units 】【 3 bytes 】
+        UTF-16：【 1 character 】【 1 code unit 】【 2 bytes 】
+*/
+const msg = "A𠮷😊吉B";
+console.log(`length of ${msg} is: `, msg.length);    // 7（1-2-2-1-1）
+for(let idx=0; idx<msg.length; idx++) { console.log(`code unit: ${msg[idx]}`)}  // A吉B
+for(let c of msg) { console.log(`character: ${c}`)}  // A𠮷😊吉B
+
+/*
+    【NodeList】default iterators are added in ES6:
+*/
+const li_nodes = document.getElementsByTagName("li");
+for(let div of li_nodes) {
+    console.log(div.nodeType);
+    console.log(div.innerHTML);
+    console.log(div.textContent);
+}
+/*
+    The【spread operator】扩展运算符 works on all【iterables】
+        & uses the【default iterator】to determine which values to include.
+*/
+let map1 = new Map([['A', 1], ['B', 2], ['C', 3]]),
+    arr1 = [...map1],
+    set1 = new Set([111, 222, 333]),
+    arr2 = [...set1],
+    str1 = 'XTINA',
+    arr3 = [...str1],
+    arr4 = [...li_nodes]
+console.log(...arr1);
+console.log(...arr2);
+console.log(...arr3);
+console.log(...arr4);/*
+    Some more complex uses of【iterators】：
+        1）passing arguments to iterators
+        2）throwing errors in iterators（& catch them）
+        3）generator return statements
+        4）delegating generators
+*/
+
+// 1）passing arguments to iterators
+function *createIterator_1() {
+    let first = yield 1;            // 1
+    let second = yield first + 2;   // 4 + 2
+    yield second + 3;               // 5 + 3
+}
+const iterator_1 = createIterator_1();
+console.log(iterator_1.next());   // "{ value: 1, done: false }"
+console.log(iterator_1.next(4));  // "{ value: 6, done: false }"
+console.log(iterator_1.next(5));  // "{ value: 8, done: false }"
+console.log(iterator_1.next());   // "{ value: undefined, done: true }
+
+// 2）throwing errors in iterators（& catch them）
+function *createIterator_2() {
+    let first = yield 1;
+    let second;
+    try {
+        second = yield first + 2; // yield 4 + 2, then throw
+    } catch (err) {
+        second = 6; // on error, assign a different value
+    }
+    yield second + 3;
+}
+const iterator_2 = createIterator_2();
+console.log(iterator_2.next()); // "{ value: 1, done: false }"
+console.log(iterator_2.next(4)); // "{ value: 6, done: false }"
+console.log(iterator_2.throw(new Error("Boom"))); // "{ value: 9, done: false }"
+console.log(iterator_2.next()); // "{ value: undefined, done: true }"
+
+// 3）generator return statements
+function *createIterator__3() {
+    yield 1;
+    return 2;
+    yield 3;    // unreachable
+}
+const iterator_3 = createIterator__3();
+console.log(iterator_3.next());     // "{ value: 1, done: false }"
+console.log(iterator_3.next());     // "{ value: 2, done: true }"
+// The【spread operator】and【for-of】ignore any value specified by a【return】statement.
+// As soon as they see【done】is【ture】，they stop without reading the【value】.
+console.log(...createIterator__3());    // 1
+for(let val of createIterator__3()) {   // 1
+    console.log(val);
+}
+
+// 4）delegating generators
+function *createNumberIterator() {
+    yield 1;
+    // this return value 2 exists solely inside the "createCombinedIterator"
+    // generator, and will not be output from any call to the next() method
+    return 2;
+}
+function *createColorIterator() {
+    yield "red";
+    yield "green";
+}
+function *createCombinedIterator() {
+    yield *createNumberIterator();
+    yield *createColorIterator();
+    yield true;
+}
+const iterator_4 = createCombinedIterator();
+console.log(iterator_4.next()); // "{ value: 1, done: false }"
+console.log(iterator_4.next()); // "{ value: "red", done: false }"
+console.log(iterator_4.next()); // "{ value: "green", done: false }"
+console.log(iterator_4.next()); // "{ value: true, done: false }"
+console.log(iterator_4.next()); // "{ value: undefined, done: true }"
+
+function *createNumberIterator1() {
+    yield 1;
+    return 2;
+}
+function *createRepeatingIterator1(count) {
+    for (let i=0; i < count; i++) {
+        yield "repeat";
+    }
+}
+function *createCombinedIterator1() {
+    let result = yield *createNumberIterator1();
+    //// we can output the return value 2 by adding another【yield】statement
+    // yield result;
+    yield *createRepeatingIterator1(result);
+}
+var iterator_5 = createCombinedIterator1();
+console.log(iterator_5.next()); // "{ value: 1, done: false }"
+// console.log(iterator_5.next()); // "{ value: 2, done: false }"
+console.log(iterator_5.next()); // "{ value: "repeat", done: false }"
+console.log(iterator_5.next()); // "{ value: "repeat", done: false }"
+console.log(iterator_5.next()); // "{ value: undefined, done: true }"
+
+/*
+    We can use【yield *】directly on【iterables】
+*/
+const str_iter = function *() {
+    yield * ['A','B'];
+    yield * "CD";
+    yield * new Set(['E']);
+    yield * new Map([['F', 'f']]);
+}();
+console.log(str_iter.next()); // "{ value: 'A', done: true }"
+console.log(str_iter.next()); // "{ value: 'B', done: true }"
+console.log(str_iter.next()); // "{ value: 'C', done: true }"
+console.log(str_iter.next()); // "{ value: 'D', done: true }"
+console.log(str_iter.next()); // "{ value: 'E', done: true }"
+console.log(str_iter.next()); // "{ value: ['F', 'f'], done: true }"
+console.log(str_iter.next()); // "{ value: undefined, done: true }"
+
+/*
+    Asynchronous Task Running
+*/
+function run(taskDef) {
+    // create the iterator, make available elsewhere
+    let task = taskDef();
+    // start the task
+    let result = task.next(); // ----------（1）----------
+    // recursive function to keep calling next()
+    function step() {
+        // if there's more to do
+        if (!result.done) {
+            if (typeof result.value === "function") {
+                result.value(function(err, data) { // ----------（2）----------
+                    if (err) {
+                        result = task.throw(err);
+                        return;
+                    }
+                    result = task.next(data);
+                    step();
+                });
+            } else {
+                result = task.next(result.value);
+                step();
+            }
+        }
+    }
+    // start the process
+    step();
+}
+function asyncFunc(param) { // ----------（1）----------
+    return function(callback) { // ----------（2）----------
+        setTimeout(() => {
+            // callback (err, data)
+            if(param=='success') {
+                callback(null, param + ' and hooray!');
+            }else{
+                callback(new Error(param + ' and oops!'))
+            }
+        }, 2000);
+    };  
+}
+run(function *() {
+    const res1 = yield asyncFunc("success");
+    console.log("res1:::", res1); // res1::: success and hooray!
+    
+    try {
+        const res2 = yield asyncFunc("failure");
+        console.log("res2:::", res2);
+    }catch (err) {
+        console.log("res2:::", err); // res2::: Error: failure and oops!
+    }
+});
+
+/*
+    The proxy virtualized the【target】so the【proxy】and the target appear to be functionally the same.
+
+    Using a【trap], it allows you to【intercept】low-level object operations on the【target】that are otherwiseinternal to the JS engine.
+
+    The【Reflection】API provide the【default behavior】for the same low-level operations that proxies can override.
+    There is a【Reflect】method for every【proxy trap】（same names, same arguments）.
+
+    【Proxy Traps】in JS include：
+    【Proxy Trap】              【Overrides the built-in Behavior of】 【Default Behavior】
+    1）get                      read a property value                  Reflect.get()
+    2）set                      write to a property                    Reflect.set()
+    3）has                      the【in】operator                       Reflect.has()
+    4）deleteProperty           the【delete】operator                   Reflect.deleteProperty()
+    5）getPrototypeOf           Object.getPrototypeOf()                Reflect.getPrototypeOf()
+    6）setPrototypeOf           Object.setPrototypeOf()                Reflect.setPrototypeOf()
+    7）isExtensible             Object.isExtensible()                  Reflect.isExtensible()
+    8）preventExtensions        Object.preventExtensions()             Reflect.preventExtensions()
+    9）getOwnPropertyDescriptor Object.getOwnPropertyDescriptor()      Reflect.getOwnPropertyDescriptor()
+    10）defineProperty          Object.defineProperty()                Reflect.defineProperty()
+    11）ownKeys                 Object.keys()                          Reflect.ownKeys()
+                                Object.getOwnPropertyNames()
+                                Object.getOwnPropertySymbols()
+    12）apply                   calling a function                     Reflect.apply()
+    13）construct               calling a function with new            Reflect.construct()
+*/
+
+// Create a simple proxy：proxy(target, handler)
+const target = {};
+// Default behaviors are used for operations of which no trap is defined in the handler.
+const proxy = new Proxy(target, {}); // a pass-through proxy
+// The proxy is NOT storing the property, but simply forwarding the operation.
+proxy.name = 'XTina';
+console.log("Name:::", proxy.name, target.name);    // XTina XTina
+target.name = 'Airboy';
+console.log("Name:::", proxy.name, target.name);    // Airboy Airboy
+
+// Proxies help avoid acessing non-existent properties by having【object shape validation】.
+const proxy_1 = new Proxy(target, {
+    set(trapTarget, key, value, receiver) {
+        console.log("set:::", trapTarget, key, value, receiver);
+        return Reflect.set(trapTarget, key, value, receiver);
+    },
+    get(trapTarget, key, receiver) {
+        console.log("get:::", trapTarget, key, receiver);
+        return Reflect.get(trapTarget, key, receiver);
+    },
+    has(trapTarget, key) {
+        console.log("has:::", trapTarget, key);
+        return Reflect.has(trapTarget, key);
+    }
+})
+
+// Who can emerge out of a trade war safe & sound？
+</script>
