@@ -1,0 +1,242 @@
+<html>
+    <head><title>events</title></head>
+    <body>
+        <h1 id="h1_title">events</h1>
+        <input 
+            type="button" 
+            value="html-event-handler-1" 
+            onclick="console.log('&quot;', this, event)"/>
+        <input 
+            type="button" 
+            value="html-event-handler-2" 
+            onclick="showMessage()"/>
+
+        <hr/>
+
+        <input 
+            type="button" 
+            id="my_btn"
+            value="dom-event-handler（add）"
+        />
+        <input 
+            type="button" 
+            id="my_remove_btn"
+            value="dom-event-handler（remove）"
+        />
+
+        <hr/>
+        
+        <input 
+            type="input" 
+            id="my_username"
+            value="username"
+        />
+    </body>
+</html>
+
+<script>
+/*
+    【DOM Level 2】events
+    【DOM Level 3】events
+    【BOM】events
+
+    Internet Explorer：     an event bubbling flow
+        <...> -> <html> -> document -> window
+    Netscape Communicator： an event capturing flow（lack of support in older browsers）
+        window -> document -> <html> -> <...>
+
+    DOM Level 2 event flow（IE8+）：
+        event capturing -> the target -> event bubbling
+*/
+
+/*
+    （1）HTML Event Handlers/Listeners
+*/
+function showMessage(event) {
+    console.log('"', this, event, window.event); // this -> undefined
+}
+
+/*
+    （2）DOM Level 0 Event Handlers（assign a function to an event handler property, such as "onclick", "onmouseup"）
+*/
+const my_btn = document.getElementById('my_btn');
+my_btn.onclick = function(event) {
+    console.log('DOM Level 0:::', this, event);
+}
+const my_remove_btn = document.getElementById('my_remove_btn');
+
+/*
+    （3）DOM Level 2 Event Handlers（addEventListner()、removeEventListner()）
+        These methods exist on all DOM nodes, and accept 3 arguments:
+        1）the event name
+        2）the event handler function
+        3）a Boolean value indicating whether to call the handler during the 
+            【capture】phase（true）or during the【bubble】phase（false）.
+
+    Beware that handlers using【anonymous functions】CANNOT be removed.
+*/
+const handler = function() {
+    console.log('DOM Level 2:::', this.value, this.id);
+};
+// Attaching event handlers in the【capture】phase is best done ONLY if you need to
+// intercept events before they reach their intended target.
+my_btn.addEventListener('click', handler, true);
+
+/*
+    （4）IE8- Event Handlers（attachEvent()、detachEvent()）
+        These methods accept 2 arguments:
+        1）the event name
+        2）the event handler function
+            And the handlers are only attached on the【bubbling】phase
+*/
+// const ie_handler_1 = function(){
+//     console.log('IE 1:::', this); 
+// }
+// const ie_handler_2 = function(){
+//     // The event handler runs in the【global context】，so【this】<=>【window】，
+//     // this difference is important to understand when writing cross-browser code. 
+//     console.log('IE 2:::', this); 
+// };
+// // Unlike the DOM method, multiple event handlers fire in the【reverse】order they were added.
+// my_btn.attachEvent("onclick", ie_handler_1);
+// my_btn.attachEvent("onclick", ie_handler_2);
+
+// Remove event listeners
+my_remove_btn.onclick = function() {
+    // You can remove event handlers assigned via【HTML/DOM Level 0】approach, by setting the value to【null】
+    my_btn.onclick = null;
+    // For【HTML/DOM Level 2】event handlers，all 3 arguments have to be EXACTLY the same in order to remove handlers 
+    my_btn.removeEventListener('click', handler, true);
+    // For cross-brower event handlers defined in EventUtil
+    EventUtil.removeHandler(my_btn, "click", cross_browser_handler);
+};
+
+/*
+    The available properties & methods of the【event】object differ based on the type of event that was fired. 
+*/
+const dom_onmouseup = function(event) {
+    console.log('mouse up:::', event);
+};
+const dom_onkeyup = function(event) {
+    console.log('key up:::', event);
+};
+const my_username = document.getElementById('my_username');
+my_username.addEventListener('keyup', dom_onkeyup);
+my_username.addEventListener('mouseup', dom_onmouseup);
+
+/*
+    The【eventPhase】property aids in determining what phase of event flow is currently active:
+    1：the capture phase
+    2：at the target
+    3：the bubbling phase
+
+    点击【h1】时：
+        body - phase>>> 1
+        h1 - phase::: 2
+        body - phase::: 3
+    点击【body】时：
+        body - phase>>> 2
+        body - phase::: 2
+    点击其他元素时：
+        body - phase>>> 1
+        body - phase::: 3
+*/
+// // capturing -> bubbling
+// document.body.addEventListener('click', function(event) {
+//     console.log('body - phase>>>', event.eventPhase);
+// }, true); // 开启 the capture phase
+// const h1_title = document.getElementById('h1_title');
+// // bubbling
+// h1_title.onclick = function(event) {
+//     console.log('h1 - phase:::', event.eventPhase);
+// };
+// // bubbling
+// document.body.onclick = function(event) {
+//     console.log('body - phase:::', event.eventPhase);
+// };
+
+/*
+    点击【h1】时：
+        h1 - phase::: 2     <h1> <h1> <h1>
+        body - phase>>> 3   <h1> <body> <body>
+        body - phase::: 3   <h1> <body> <body>
+    点击【body】时：
+        body - phase>>> 2   <body> <body> <body>
+        body - phase::: 2   <body> <body> <body>
+    点击其他【❓】元素时：
+        body - phase>>> 3   <❓> <body> <body>
+        body - phase::: 3   <❓> <body> <body>
+    
+    Inside an event handler, 
+    【this】===【currentTarget】=== the element whose event handler is currently handling the event,
+    whereas【target】contains only the actual target of the event.
+*/
+// bubbling
+document.body.addEventListener('click', function(event) {
+    console.log('body - phase>>>', event.eventPhase, event.target, event.currentTarget, this);
+}, false); // 关闭 the capture phase
+const h1_title = document.getElementById('h1_title');
+// bubbling
+h1_title.onclick = function(event) {
+    console.log('h1 - phase:::', event.eventPhase, event.target, event.currentTarget, this);
+};
+// bubbling
+document.body.onclick = function(event) {
+    console.log('body - phase:::', event.eventPhase, event.target, event.currentTarget, this);
+};
+
+/*
+  The Cross-Browser Event Object  
+*/
+const EventUtil = {
+    addHandler: function(element, type, handler) {
+        if (element.addEventListener) {
+            element.addEventListener(type, handler, false);
+        } else if (element.attachEvent) { // ie 
+            element.attachEvent("on" + type, handler);
+        } else {
+            element["on" + type] = handler;
+        }
+    },
+    removeHandler: function(element, type, handler) {
+        if (element.removeEventListener) {
+            element.removeEventListener(type, handler, false);
+        } else if (element.detachEvent) { // ie 
+            element.detachEvent("on" + type, handler);
+        } else {
+            element["on" + type] = null;
+        }
+    },
+    getEvent: function(event) {
+        return event 
+            ? event 
+            : window.event; // ie 
+    },
+    getTarget: function(event) {
+        return event.target
+            ? event.target
+            : event.srcElement; // ie 
+    },
+    preventDefault: function(event) {
+        if(event.preventDefault) {
+            event.preventDefault();
+        } else { // ie 
+            event.returnValue = false;
+        }
+    },
+    // cancels either capturing or bubbling
+    stopPropagation: function(event) {
+        if(event.stopPropagation) {
+            event.stopPropagation();
+        } else { // ie 
+            event.cancelBubble= true;
+        }
+    }
+};
+const cross_browser_handler = function(event) {
+    event = EventUtil.getEvent(event);
+    const target = EventUtil.getTarget(event);
+    console.log('Cross Browser>>>', this, target, event);
+}; 
+EventUtil.addHandler(my_btn, "click", cross_browser_handler);
+</script>
